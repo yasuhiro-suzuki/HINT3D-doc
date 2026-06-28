@@ -1,0 +1,905 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+% This is a simple template for a LaTeX document using the "article" class.
+% See "book", "report", "letter" for other types of document.
+
+\documentclass[10pt]{article} % use larger type; default would be 10pt
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+
+%%% Examples of Article customizations
+% These packages are optional, depending whether you want the features they provide.
+% See the LaTeX Companion or other references for full information.
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+\geometry{margin=1in} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+\usepackage{hyperref}
+\usepackage{minted}
+\usepackage{graphicx} % support the \includegraphics command and options
+
+% \usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+
+%%% PACKAGES
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+% These packages are all incorporated in the memoir class to one degree or another...
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+\usepackage{color}
+
+%%% END Article customizations
+
+%%% The "real" document content comes below...
+
+\title{Guide to using HINT}
+\author{Yasuhiro SUZUKI}
+\date{\today} % Activate to display a given date or no date (if empty),
+         % otherwise the current date is printed 
+
+\begin{document}
+\maketitle
+
+\section{Obtain the source code}
+The source code of \texttt{HINT} and its relevant codes for pre-process and post-process are stored in GITHUB repository. In order to access the repository, you have to send the request to the author of the HINT code, Professor Yasuhiro Suzuki [\href{mailto:suzukiy@hiroshima-u.ac.jp}{suzukiy@hiroshima-u.ac.jp}].
+
+\vspace{5mm}
+You can download the source code via git clone;
+\begin{minted}[linenos]{c}
+$ git clone ssh://github.com/yasuhiro-suzuki/HINT3D.git
+\end{minted}
+\vspace{5mm}
+
+In this tutorial, the \texttt{current}-branch of \texttt{HINT} code in the Github repository is used. 
+The data used in the tutorial is stored in the server: \texttt{https://datashare.mpcdf.mpg.de/s/3iZlEPTRvFc8LPp}.
+
+\section{Setting environment}
+First of all, the environment of performing the \texttt{HINT} code has to be setted. 
+The modules, especially \texttt{intel}, \texttt{intelmpi}, \texttt{hdf5}, \texttt{netcdf}, have to be loaded; 
+\vspace{3mm}
+\begin{minted}[linenos]{c}
+$ module load intel/pe-xe-2020--binary
+$ module load intelmpi/2020--binary
+$ module load gnu/8.3.0
+$ module load zlib/1.2.11--gnu--8.3.0
+$ module load szip/2.1.1--gnu--8.3.0
+$ module load hdf5
+$ module load netcdf
+$ module load netcdff
+
+$ module list
+Currently Loaded Modulefiles:
+ 1) profile/base                          
+ 2) env-skl/1.0                            
+ 3) intel/pe-xe-2020--binary               
+ 4) intelmpi/2020--binary                  
+ 5) gnu/8.3.0                              
+ 6) zlib/1.2.11--gnu--8.3.0                
+ 7) szip/2.1.1--gnu--8.3.0                 
+ 8) hdf5/1.12.2--intelmpi--2020--binary    
+ 9) netcdf/4.9.0--intelmpi--2020--binary   
+10) netcdff/4.6.0--intelmpi--2020--binary  
+\end{minted}
+\vspace{3mm}
+
+
+\section{Directory structure}
+
+In this tutorial, we define \texttt{HINT} as our main project directory. 
+Obtain the input data which contains the example of LHD from\texttt{https://datashare.mpcdf.mpg.de/s/3iZlEPTRvFc8LPp}, then place it in the main project directory, naming \texttt{DATA}.  
+In the main directory, make directories of \texttt{build/} where you compile the codes. 
+Sub-directories in the main directory is organized as follows:
+\begin{verbatim}
+$ DATA
+$ bin
+$ HINT3D/README.md
+$ HINT3D/GPRTS
+$ HINT3D/HINT
+$ HINT3D/HMAG
+$ HINT3D/MKFLX
+$ HINT3D/MKLIM
+$ HINT3D/MKVAC
+$ build/GPRTS
+$ build/HINT
+$ build/HMAG
+$ build/MKFLX
+$ build/MKLIM
+$ build/MKVAC
+
+\end{verbatim}
+The \texttt{MKVAC}, \texttt{MKFLX}, and \texttt{MKLIM} are preprocessing codes. \texttt{HMAG} and \texttt{GPRTS} are post-processing codes. These codes are called by shell scripts kept in \texttt{DATA} directory.
+
+\section{Making input files for HINT}
+
+\subsection{Introduction}
+Making input files is relatively easy once you have some outputs from \texttt{VMEC}. The scripts are located in the \texttt{DATA} directory.
+
+For pre-processing codes such as \texttt{MKVAC}, \texttt{MKFLX}, and \texttt{MKLIM}, the general procedure of compiling and execution is following:
+\begin{description}
+ \item[Step 1: VMEC input and output, and other inputs]\mbox{}\\
+ Input files required are:
+ \begin{itemize}
+  \item \verb|mgrid.LHD_171x171x36| - this is a VMEC input file, it contains tables of the vacuum magnetic field of external coils. The \texttt{mgrid}-file is used by \texttt{MKVAC} to calculate the magnetic field in vacuum.  
+  
+  \item wout file - this is a VMEC output file, it contains information for making the normalized toroidal flux to prescribe the plasma pressure and toroidal current density. The \texttt{wout}-file is used by \texttt{MKFLX} to calculate the toroidal flux profile and the initial pressure profile is decided. 
+
+  \item \verb|LHD_vessel_3D.dat| - this is an original data format file which contains the information of coordinates of the first-wall. The \texttt{vessel}-file is used by \texttt{MKLIM}.
+ \end{itemize}
+%THEN place all files in \texttt{MKMAG/DATA} directory.
+The files of \texttt{mgrid}, \texttt{wout} and \texttt{vessel} are placed in \texttt{DATA} directory. 
+
+ \item[Step 2: Compiling the input code]\mbox{}\\
+  Make sure the source code to compile navigates to \texttt{build} directories and run \texttt{make}.
+
+ \item[Step 3: Running the code]\mbox{}\\
+  To run the code you need to navigate to \texttt{MAGFILE}, and then edit the shell script with the paths and names of the input files. Then execute the shell script.
+
+ \item[Step 4: Making the controlling parameter file]\mbox{}\\
+ To run the HINT code you need to specify the controlling parameters in the standard input.
+ 
+\end{description}
+
+\subsection{HINT code: main code for construction of 3D equilibrium}
+First, compiling of the main code, \texttt{HINT}, is carried out. 
+
+The compile should be done in \texttt{build} directory, by
+\vspace{2mm}
+\begin{minted}[linenos]{bash}
+$ mkdir build
+$ cd build
+$ mkdir HINT
+$ ln -s ../../HINT3D/HINT/*.f90 . 
+$ ln -s ../../HINT3D/HINT/modules_stepa/fline_method_mod.f90 stepa_mod.f90
+$ cp ../../HINT3D/HINT/Makefile.template Makefile
+$ edit Makefile
+$ make
+\end{minted}
+\vspace{2mm}
+
+In the process of \texttt{edit Makefile} which in the 5-th line, the \texttt{Makefile} has to be editted according to your computer environment. 
+For example, \texttt{Makefile} should be editted as below for executing on Marconi machine;
+\vspace{2mm}
+\begin{minted}[linenos]{make}
+SHELL=/bin/sh
+FC=mpiifort
+LINK=mpiifort
+FFLAGS=  -O2 -cpp -DNETCDF   ##-ffree-line-length-none -cpp
+LDFLAGS=
+MOD= -I$(HDF5_HOME)/include -I$(NETCDFF_HOME)/include
+LIBS=-L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(NETCDF_HOME)/lib -L$(NETCDFF_HOME)/lib -lnetcdff -lnetcdf -L$(SZIP_LIB) -lsz -lz
+PROGRAM=hint.exe
+\end{minted}
+\vspace{2mm}
+
+When the compiling is successfully terminated, the directory of \texttt{build/HINT} has the execition file \texttt{hint.exe}. 
+
+\subsection{MKVAC code: making the vacuum magnetic field}
+The HINT needs the vacuum magnetic field as inputs. 
+To make the input files follow these steps:
+\begin{description}
+ \item[Step 1: Compiling the code]\mbox{}\\
+%  Run \texttt{make} in \texttt{build} directory.
+Make a directory named \texttt{MKVAC} under the \texttt{build} directory, i.e. \texttt{build/MKVAC}. 
+
+In the same way with the compile of HINT code, the source code should be linked as follows in the \texttt{build/MKVAC};
+\vspace{2mm}
+\begin{minted}[linenos]{bash}
+$ ln -s ../../HINT3D/MKVAC/*.f90 .
+$ cp ../../HINT3D/MKVAC/Makefile.gfortran Makefile
+$ edit Makefile
+$ make
+\end{minted}
+\vspace{2mm}
+
+In the process of \texttt{edit Makefile} which in the 3rd line, the \texttt{Makefile} has to be editted according to your computer environment as like you did for compile of HINT code. 
+For example, \texttt{Makefile} should be editted as below for executing on Marconi machine;
+\vspace{2mm}
+\begin{minted}[linenos]{make}
+SHELL=/bin/sh
+FC=ifort
+LINK=ifort
+FFLAGS= -convert big_endian -O2 -cpp -DNETCDF ##-ffree-line-length-none -cpp -DNETCDF
+LDFLAGS=
+LIBS=-L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(NETCDF_HOME)/lib -L$(NETCDFF_HOME)/lib -lnetcdff -lnetcdf -L$(SZIP_LIB) -lsz -lz
+MOD=-I$(HDF5_HOME)/include -I$(NETCDFF_HOME)/include
+PROGRAM=mkvac.exe
+\end{minted}
+\vspace{2mm}
+
+Here in the 4th line, \texttt{FFLAGS=}, only LHD example case needs \texttt{FFLAGS= -convert big\_endian}. This is because the \texttt{mgrid}-file of LHD example case is fortran binary. 
+
+When the compiling is successfully terminated, the directory of \texttt{build/MKVAC} has the execition file \texttt{mkvac.exe}. 
+
+
+ \item[Step 2: Editing the shell script]\mbox{}\\
+  You need to edit the shell script, \texttt{mkvac.csh}. Note set the following variables as:
+   \begin{itemize}
+    \item vac\_form: specify output file format;
+     \begin{enumerate}
+      \item HDF5 or hdf5: HDF5 format
+      \item NETCDF or netcdf: netCDF4 format
+      \item BIN or bin: Fortran binary format
+     \end{enumerate}
+    \item vac\_file: output file's name
+    \item mtor: toroidal field period
+    \item nr: grid number along $R$ \textcolor{red}{(must be $2^N$)}
+    \item nz: grid number along $Z$ \textcolor{red}{(must be $2^N$)}
+    \item ntor: grid number along $\phi$ \textcolor{red}{(must be $2^N$)}
+    \item rmin: Minimum R in meter of rectangular computational box
+    \item rmax: Maximum R in meter of rectangular computational box
+    \item zmin: Minimum Z in meter of rectangular computational box
+    \item zmax: Maximum Z in meter of rectangular computational box
+    \item lsymmetry: logical flag to superimpose the stellarator symmetry \textcolor{red}{For stellarator, this flag should be set to T}
+    \item mag\_form: specify the file format to read the code \textcolor{red}{For our case, `mgrid' must be used}
+    \item extcur: external coil currents are specified
+   \end{itemize}
+
+ \item[Step 3: Running the code]\mbox{}\\
+  Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{c}
+$ ./mkvac.csh
+\end{minted}
+\vspace{-2mm}
+\end{description}
+
+The successful execution of \texttt{mkvac.csh} produces the output file as you have defined as \texttt{vac\_file}, for example, \texttt{r360\_g12538\_bq+100\_3.4x3.4\_256x256x64.vac.h5}. 
+
+\subsection{MKFLX code: making the normalized toroidal flux distribution}
+The HINT needs the normalized toroidal flux distribution as inputs. 
+To make the input files follow these steps:
+\begin{description}
+ \item[Step 1: Compiling the code]\mbox{}\\
+%%  Run \texttt{make} in \texttt{build} directory.
+  Make a directory named \texttt{MKFLX} under the \texttt{build} directory, i.e. \texttt{build/MKFLX}. 
+
+In the same way with the compile of HINT code, the source code should be linked as follows in the \texttt{build/MKFLX};
+\vspace{2mm}
+\begin{minted}[linenos]{bash}
+$ ln -s ../../HINT3D/MKFLX/*.f90 .
+$ cp ../../HINT3D/MKFLX/Makefile.gfortran Makefile
+$ edit Makefile
+$ make
+\end{minted}
+\vspace{2mm}
+
+In the process of \texttt{edit Makefile} which in the 3rd line, the \texttt{Makefile} has to be edited according to your computer environment as like you did for compile of HINT code. 
+For example, \texttt{Makefile} should be edited as below for executing on Marconi machine;
+\vspace{2mm}
+\begin{minted}[linenos]{make}
+SHELL=/bin/sh
+FC=ifort
+LINK=ifort
+FFLAGS= -convert big_endian -O2 -cpp -DNETCDF ##-ffree-line-length-none -cpp -DNETCDF -fbacktrace
+LDFLAGS=-fbacktrace
+LIBS=-L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(NETCDF_HOME)/lib -L$(NETCDFF_HOME)/lib -lnetcdff -lnetcdf -L$(SZIP_LIB) -lsz -lz
+INC=
+MOD=-I$(HDF5_HOME)/include -I$(NETCDFF_HOME)/include
+PROGRAM=mkflx.exe
+\end{minted}
+\vspace{2mm}
+
+When the compiling is successfully terminated, the directory of \texttt{build/MKFLX} has the execition file \texttt{mkflx.exe}. 
+
+ \item[Step 2: Editing the shell script]\mbox{}\\
+  You need to edit the shell script, \texttt{mkflx.csh}. Note set the following variables as:
+   \begin{itemize}
+    \item flx\_form: specify output file format;
+     \begin{enumerate}
+      \item HDF5 or hdf5: HDF5 format
+      \item NETCDF or netcdf: netCDF4 format
+      \item BIN or bin: Fortran binary format
+     \end{enumerate}
+    \item flx\_file: output file's name
+    \item file\_format: specify wout file format
+     \begin{enumerate}
+      \item nc: netCDF3 or 4 format
+      \item txt: ASCII format
+     \end{enumerate}
+    \item wout\_file: wout\_file's name 
+    \item mtor: toroidal field period
+    \item nr: grid number along $R$ \textcolor{red}{(must be $2^N$)}
+    \item nz: grid number along $Z$ \textcolor{red}{(must be $2^N$)}
+    \item ntor: grid number along $\phi$ \textcolor{red}{(must be $2^N$)}
+    \item rmin: Minimum R in meter of rectangular computational box
+    \item rmax: Maximum R in meter of rectangular computational box
+    \item zmin: Minimum Z in meter of rectangular computational box
+    \item zmax: Maximum Z in meter of rectangular computational box
+   \end{itemize}
+
+ \item[Step 3: Running the code]\mbox{}\\
+  Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./mkflx.csh
+\end{minted}
+\vspace{-2mm}
+\end{description}
+
+The successful execution of \texttt{mkflx.csh} produces the output file as you have defined as \texttt{flx\_file}, for example, \texttt{r360\_g12538\_bq+100\_3.4x3.4\_256x256x64.flx.h5}. 
+
+
+
+\subsection{MKLIM code: making limiter file}
+The HINT needs the limiter file to decide the plasma boundary. The \texttt{MKLIM} code makes a mapping file in the inside and outside of the first wall. To make the limiter file follow these steps:
+\begin{description}
+ \item[Step 1: Compiling the code]\mbox{}\\
+%  Run \texttt{make} in \texttt{build} directory.
+  Make a directory named \texttt{MKLIM} under the \texttt{build} directory, i.e. \texttt{build/MKLIM}. 
+
+In the same way with the compile of HINT code, the source code should be linked as follows in the \texttt{build/MKLIM};
+\vspace{2mm}
+\begin{minted}[linenos]{bash}
+$ ln -s ../../HINT3D/MKLIM/*.f90 .
+$ cp ../../HINT3D/MKLIM/Makefile.gfortran Makefile
+$ edit Makefile
+$ make
+\end{minted}
+\vspace{2mm}
+
+In the process of \texttt{edit Makefile} which in the 3rd line, the \texttt{Makefile} has to be edited according to your computer environment as like you did for compile of HINT code. 
+For example, \texttt{Makefile} should be edited as below for executing on Marconi machine;
+\vspace{2mm}
+\begin{minted}[linenos]{make}
+SHELL=/bin/sh
+FC=ifort
+LINK=ifort
+FFLAGS=-convert big_endian -O2 -cpp -DNETCDF ##-ffree-line-length-none -cpp -DNETCDF -fbacktrace
+LDFLAGS=-fbacktrace
+LIBS=-L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(NETCDF_HOME)/lib -L$(NETCDFF_HOME)/lib -lnetcdff -lnetcdf -L$(SZIP_LIB) -lsz -lz
+INC=
+MOD=-I$(HDF5_HOME)/include -I$(NETCDFF_HOME)/include
+PROGRAM=mklim.exe
+\end{minted}
+\vspace{2mm}
+
+When the compiling is successfully terminated, the directory of \texttt{build/MKLIM} has the execition file \texttt{mklim.exe}.
+
+  
+ \item[Step 2: Editing the shell script]\mbox{}\\
+  You need to edit the shell script, \texttt{mklim.csh}. Note set the following variables as:
+   \begin{itemize}
+    \item lim\_form: specify output file format;
+     \begin{enumerate}
+      \item HDF5 or hdf5: HDF5 format
+      \item NETCDF or netcdf: netCDF4 format
+      \item BIN or bin: Fortran binary format
+     \end{enumerate}
+    \item lim\_file: output file's name
+    \item vessel\_model: specify wout file format
+     \begin{enumerate}
+      \item 2D: Axisymmetric wall
+      \item 3D: Non-axisymmetric wall
+     \end{enumerate}
+    \item vessel\_file: vessel file's name
+    \item nr: grid number along $R$ \textcolor{red}{(Set the same value to \texttt{MKMAG})}
+    \item nz: grid number along $Z$ \textcolor{red}{(Set the same value to \texttt{MKMAG})}
+    \item ntor: grid number along $\phi$ \textcolor{red}{(Set the same value to \texttt{MKMAG})}
+    \item mtor: toroidal field period \textcolor{red}{(Set the same value to \texttt{MKMAG})}
+    \item rminb: Minimum R in meter of rectangular computational box \textcolor{red}{(must be same to \texttt{MKVAC} and \texttt{MKFLX})}
+    \item rmaxb: Maximum R in meter of rectangular computational box \textcolor{red}{((must be same to \texttt{MKVAC} and \texttt{MKFLX})}
+    \item zminb: Minimum Z in meter of rectangular computational box \textcolor{red}{(must be same to \texttt{MKVAC} and \texttt{MKFLX})}
+    \item zmaxb: Maximum Z in meter of rectangular computational box \textcolor{red}{(must be same to \texttt{MKVAC} and \texttt{MKFLX})}
+   \end{itemize}
+
+ \item[Step 3: Running the code]\mbox{}\\
+  Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./mklim.csh
+\end{minted}
+\vspace{-2mm}
+\end{description}
+
+The successful execution of \texttt{mklim.csh} produces the output file as you have defined as \texttt{lim\_file}, for example, \texttt{LHD\_vessel\_3.4x3.4\_256x256x64.limiter.h5}. 
+  
+
+\section{Running the HINT code}
+\subsection{Making controlling parameter file}  
+
+An example \verb|r360_g12538_bq+100_lc10_ppkf2.b020.input| in \texttt{DATA} is shown as follows:
+\begin{verbatim}
+!-----------------------------------------
+! set MPI process numbers along R, Z, phi
+!-----------------------------------------
+&mpi_inp1
+ iprocs = 1, ! along R idrection
+ jprocs = 1, ! along Z direction
+ kprocs = 4, ! along phi direction
+&end
+!--------------------------
+! set mode to run the code
+!--------------------------
+&nlinp1
+ lfile = .true.,
+!-----------------------------------------------------
+! "initial": clauclation set up from the vacuum field
+! "follow" : following up job
+!-----------------------------------------------------
+ run_mode = 'initial',
+!------------------------------------------------------------
+! "file": normalized toroidal flux, s, is read from the file
+! "calc": s is claulated from the pressure distribution
+!------------------------------------------------------------
+ flx_type = 'file',
+!------------------------------------
+! lresetp: redistribute the pressure
+!------------------------------------
+ lresetp  = .true.,
+!----------------------------------------------------------------------
+! "power series": specify the profile shape by 20th order polynominals
+! "parabolic"   : specify the profile shape by parabolic functions
+! "linear"      : linear interpolation from profile data
+! "quadratic"   : quadatic interpolation (NOT implemented)
+! "akima"       : Akima's cubic spline (NOT implemented)
+!----------------------------------------------------------------------
+ p_type   = 'parabolic',
+&end
+!------------------------
+! set control parameters
+!------------------------
+&nlinp2
+!--------------------------------------------------------------------
+! beta:  toroidal beta value on axis
+! bt0:   toroidal magnetic field to prescribe the beta
+! am0:   polynominal coefficients to prescribe the pressure profile
+! nstep: step number of overall loops
+! npchg: step number to rump up the beta
+! nsvae: interval to save the magnetic field and others
+! npset: interval to redistribute the pressure
+!--------------------------------------------------------------------
+ beta  =  0.02,
+ bt0   =  2.58,
+ am0    = 0.01,  1.00,  1.00,
+ nstep =  80,
+ npchg =  1,
+ nsave =  5,
+ npset =  20,
+&end
+!-----------------------
+! set coordinate system
+!-----------------------
+&nlinp3
+!----------------------------------------------
+! nr:    grid number along R
+! nz:    grid number along Z
+! ntor:  grid number along phi
+! rminb: minimum R of the computational domain
+! rmaxb: maximum R of the computational domain
+! zminb: minimum Z of the computational domain
+! zmaxb: maximum Z of the computational domain
+! mtor:  toroidal field period
+!----------------------------------------------
+ nr     =  256,
+ nz     =  256,
+ ntor   =  64,
+ rminb  =  2.2,
+ rmaxb  =  5.6,
+ zminb  = -1.7,
+ zmaxb  =  1.7,
+ mtor   =  10,
+&end
+&nlinp4
+&end
+&nlinp5
+&end
+!----------------------------------
+! set control parameters in step-A
+!----------------------------------
+&stepa_inp1
+!------------------------------------------------------------
+! h_in:  step size of the Runge-Kutta for field line tracing
+! lc_in: length of field line tracing
+!------------------------------------------------------------
+ h_in  =  1.0E-02,
+ lc_in =  1.0E+01,
+&end
+!----------------------------------
+! set control parameters in step-B
+!----------------------------------
+&stepb_inp1
+!---------------------------------------------------------
+! lhistoryb: switch to write debugging information
+! nstepb:    step number to evole MHD equations
+! nrefb:     interval to save refrences for smoothing
+! nsoothb:   interval to apply smoothing filter
+! nenergyb:  interval to caluclate debugging information
+! dt_b:      time step to evole MHD equations
+! eta0:      resistivity in the plasma
+! nu1:       viscosity
+!---------------------------------------------------------
+ lhistoryb = .true.,
+ nstepb    = 1000,
+ nrefb     = 1000,
+ nsmoothb  = 1,
+ nenergyb  = 100,
+ dt_b      = 1.0E-03,
+ eta0      = 1.0E-04,
+ nu1       = 1.0E-08
+&end
+&fopen_stepb
+ historyb_file = 'r360_g12538_bq+100_lc10_ppkf2.b020.historyb',
+&end
+&fopen
+ file_type     = 'hdf5',
+ vac_file      = 'r360_g12538_bq+100_3.4x3.4_256x256x64.vac.h5',
+ flx_file      = 'r360_g12538_bq+100_3.4x3.4_256x256x64.flx.h5',
+ limiter_file  = 'LHD_vessel_3.4x3.4_256x256x64.limiter.h5',
+ mag_file      = 'r360_g12538_bq+100_lc10_ppkf2.b020.mag.h5',
+&end
+\end{verbatim}
+You must specify the following parameters as follows:
+\begin{itemize}
+ \item \texttt{iprocs} : MPI processes number of $R$-direction
+ \item \texttt{jprocs} : MPI processes number of $Z$-direction
+ \item \texttt{kprocs} : MPI processes number of $\phi$-direction
+ \item \texttt{beta} : toroidal beta
+ \item \texttt{bt0} : toroidal field to specify the toroidal beta
+ \item \texttt{nstep} : total iteration number
+ \item \texttt{npchg} : step number to rump up the beta
+ \item \texttt{nsave} : interval to save the magnetic field and others
+ \item \texttt{npset} : interval to redistribute the pressure
+ \item \texttt{p\_type} : \texttt{HINT} specifies the pressure profile shape as a function of the normalized toroidal flux. The parameter \texttt{p\_type} set to the type of functions.
+ \item \texttt{am0} : coefficients of the profile function
+ \item \texttt{nr} : grid numbers of $R$-direction. \textcolor{red}{Set the same value to the input file by \texttt{MKVAC}}.
+ \item \texttt{nz} : grid numbers of $Z$-direction. \textcolor{red}{Set the same value to the input file by \texttt{MKVAC}}.
+ \item \texttt{ntor} : grid numbers of $\phi$-direction. \textcolor{red}{Set the same value to the input file by \texttt{MKVAC}}.
+ \item \texttt{mtor} : toroidal field period. \textcolor{red}{Set the same value to the input file by \texttt{MKVAC}}.
+ \item \texttt{h\_in} : step size of the Runge-Kutta for field line tracing.
+ \item \texttt{lc\_in} : length of field line tracing.
+ \item \texttt{eta0} : resistivity.
+ \item \texttt{hisotryb\_file} : specify the file name on the scratch directory.
+ \item \texttt{file\_type} : specify the input and output file formats.
+  \begin{enumerate}
+   \item  HDF5 or hdf5: HDF5 format
+   \item NETCDF or netcdf: netCDF4 format
+   \item BIN or bin: Fortran binary format
+  \end{enumerate}
+ \item \texttt{vac\_file} : specify the file name in the project directory.
+ \item \texttt{flx\_file} : specify the file name in the project directory.
+ \item \texttt{limiter\_file} : specify the file name in the project directory.
+ \item \texttt{mag\_file} : specify the file name on the scratch directory.
+\end{itemize}
+
+\subsection{Running HINT}
+
+\textcolor{red}{This part describes only the test job. This part will be updated.}
+
+\begin{description}
+
+ \item[Step 1: Preparing input files and shell script]\mbox{}\\
+  You need to prepare the working directory. 
+  Here, in this tutorial, the working directory is named as \texttt{run\_LHD}. 
+
+  In the working directory, place the output files of \texttt{MKVAC}, \texttt{MKFLX} and \texttt{MKLIM}, i.e. \texttt{r360\_g12538\_bq+100\_3.4x3.4\_256x256x64.vac.h5}, \texttt{r360\_g12538\_bq+100\_3.4x3.4\_256x256x64.flx.h5}, and \texttt{LHD\_vessel\_3.4x3.4\_256x256x64.limiter.h5}, respectively.  
+
+  Also, copy an input file, \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.input} and shell script \texttt{go001.csh}, from \texttt{DATA} directory to the working directory. 
+  
+  %Please copy \texttt{/data/lng/suzuki/LHD/DATA/}. After making working directory you have to copy an input file, \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.input}, and shell script, \texttt{go001.csh}. These are examples to run HINT. THEN edit these files to match your environment (i.e. file name, scratch directory, and so on...)
+
+ \item[Step 2: Submitting batch job]\mbox{}\\
+
+ Here, instead of \texttt{go001.csh}, the batch file for Marconi machine is introduced. 
+ The batch file has to request the same number of MPI process which you defined in the input file, \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.input}. Then, the mpi execution has to be launched reading the input file;
+ \begin{verbatim}
+ $  mpirun ../build/HINT/hint.exe < r360_g12538_bq+100_lc10_ppkf2.b020.input > out_hint
+\end{verbatim}
+  
+  Submit a job as:
+  \begin{verbatim}
+   sbatch job_marconi.sh
+  \end{verbatim}
+%  \begin{verbatim}
+%   pjsub go001.csh
+%  \end{verbatim}
+  If the cluster is not clouded, the calculation will be finished within a few minutes (depending on \texttt{nstep}).
+\end{description}
+
+
+The successfull execution of the HINT code produces the following files;
+\texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.historyb} and \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.mag.h5}.
+
+
+\section{Analysis using HMAG}
+\subsection{Introduction}
+HMAG is to follow the field lines to analyze the magnetic surfaces. 
+
+\subsection{Compile}
+  Make a directory named \texttt{HMAG} under the \texttt{build} directory, i.e. \texttt{build/HMAG}. 
+
+In the same way with the compile of HINT code, the source code should be linked as follows in the \texttt{build/HMAG};
+\vspace{2mm}
+\begin{minted}[linenos]{bash}
+$ ln -s ../../HINT3D/HMAG/*.f90 .
+$ cp ../../HINT3D/HMAG/Makefile.gfortran Makefile
+$ edit Makefile
+$ make
+\end{minted}
+\vspace{2mm}
+
+In the process of \texttt{edit Makefile} which in the 3rd line, the \texttt{Makefile} has to be edited according to your computer environment as like you did for compile of HINT code. 
+For example, \texttt{Makefile} should be edited as below for executing on Marconi machine;
+\vspace{2mm}
+\begin{minted}[linenos]{make}
+SHELL=/bin/sh
+FC=ifort
+LINK=ifort
+FFLAGS=-convert big_endian -O2 -cpp -DNETCDF  ##-ffree-line-length-none -cpp -DPLPLOT -DNETCDF
+LDFLAGS=
+MOD=-I$(HDF5_HOME)/include -I$(NETCDFF_HOME)/include
+LIBS=-L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(NETCDF_HOME)/lib -L$(NETCDFF_HOME)/lib -lnetcdff -lnetcdf -L$(SZIP_LIB) -lsz -lz
+PROGRAM=hmag.exe
+\end{minted}
+\vspace{2mm}
+
+When the compiling is successfully terminated, the directory of \texttt{build/HMAG} has the execition file \texttt{hmag.exe}.
+
+\subsection{Execution - calculation of $\beta$-field}
+
+Copy the shell script \texttt{hmag.csh} from \texttt{DATA} directory to working directory. 
+Modify the shell script \texttt{hmag.csh} according to the structure of directory. 
+
+The HMAG code requires the information of the geometry of vacumm vessel, therefore, you need to copy \texttt{LHD\_vessel\_3D.dat} from \texttt{DATA};
+\begin{minted}[linenos]{bash}
+$ cp ../DATA/LHD_vessel_3D.dat .
+\end{minted}
+
+Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./hmag.csh
+\end{minted}
+\vspace{5mm}
+
+
+The successful execution of \texttt{hmag.csh} produces the output files, for example, \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.mag.h5}, \texttt{fort.60}, and \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.1.plot}-\texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.8.plot}. 
+
+Files \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.1.plot} etc. contain the data of the poincare plot. 
+In order to plot, the easiest way is to use \texttt{gnuplot};
+\vspace{0mm}
+\begin{minted}[linenos]{bash}
+$ gnuplot
+gnuplot> plot 'r360_g12538_bq+100_lc10_ppkf2.b020.1.plot'
+\end{minted}
+\vspace{5mm}
+
+The file \texttt{fort.60} contains the information of the plasma minor radius $<r>$, rotational transform $\iota$. 
+
+\subsection{Calculation of vacuum field}
+The vacuum field (i.e. before execution of HINT) can be computed using \texttt{HMAG}. 
+
+You need the files of the output files of \texttt{MKVAC}, \texttt{MKFLX} and \texttt{MKLIM}, i.e.
+\begin{itemize}
+    \item \texttt{r360\_g12538\_bq+100\_3.4x3.4\_256x256x64.vac.h5}, 
+    \item \texttt{r360\_g12538\_bq+100\_3.4x3.4\_256x256x64.flx.h5},
+    \item \texttt{LHD\_vessel\_3.4x3.4\_256x256x64.limiter.h5}
+    \item \texttt{LHD\_vessel\_3D.dat}.
+\end{itemize}
+
+Set the parameters such as \texttt{rax0}, etc. Then, execute by;
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./vac.csh 
+\end{minted}
+\vspace{2mm}
+
+
+\section{Preparation of MIPS input from HINT}
+Output of HINT code can be converted into input of MIPS code. 
+The code which converts output of HINT code into input of MIPS code is named \texttt{MAGVAL}, and it is stored in \texttt{DATA}. 
+
+First, you have to set the configuration of Makefile;
+For example, \texttt{Makefile} should be edited as below for executing on Marconi machine;
+\vspace{2mm}
+\begin{minted}[linenos]{make}
+SHELL=/bin/sh
+FC=ifort
+LINK=ifort
+FFLAGS=-byteswapio -mcmodel=medium -O2 -cpp -DNETCDF -traceback
+LDFLAGS=-traceback
+MOD=-I$(HDF5_HOME)/include -I$(NETCDFF_HOME)/include
+LIBS=
+LIBS=-L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(NETCDF_HOME)/lib -L$(NETCDFF_HOME)/lib -lnetcdff -lnetcdf -L$(SZIP_LIB) -lsz -lz
+PROGRAM=magval.exe
+\end{minted}
+\vspace{2mm}
+
+The successful compiling gives the output file \texttt{magval.exe}. 
+
+Place the \texttt{magval.exe} and the shell script \texttt{go.csh} in the working directory of HINT calculation. 
+Modify the shell script \texttt{go.csh} according to the computer environment. 
+
+Note, the HINT calculation has been performed with \texttt{rmin=2.2},  \texttt{rmax=5.6},  \texttt{zmin=-1.7} and \texttt{zmin=1.7}. 
+For MIPS calculation, the simulation domain has to extract the inner part of HINT calculation, because MIPS code wants to avoid the coil positions, \texttt{rmin=2.8},  \texttt{rmax=4.8},  \texttt{zmin=-1.0} and \texttt{zmin=1.0}.
+
+
+Then, execute the shell script;
+\vspace{0mm}
+\begin{minted}[linenos]{bash}
+$ ./go.csh 
+\end{minted}
+\vspace{5mm}
+
+The successful execution of \texttt{magval.exe} gives the output files, 
+\begin{itemize}
+    \item \texttt{fort.400}
+    \item \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.mips\_eq}. 
+\end{itemize}
+
+
+\section{Appendix}
+\subsection{Execution of TJ-II}
+\subsection{MKVAC code: making the vacuum magnetic field}
+
+The compiling of the \texttt{MKVAC} code has been already done in the tutorial of LHD case. 
+\begin{description}
+ \item[Step 2: Editing the shell script]\mbox{}\\
+  You need to edit the shell script, \texttt{mkvac2.csh}. 
+
+ \item[Step 3: Running the code]\mbox{}\\
+  Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./mkvac2.csh
+\end{minted}
+\vspace{-2mm}
+\end{description}
+
+The successful execution of \texttt{mkvac2.csh} produces the output file as you have defined as \texttt{vac\_file}, for example, \texttt{TJ-II\_tutorial.vac.h5}. 
+
+
+
+\subsection{MKFLX code: making the normalized toroidal flux distribution}
+The compilation has been alredady done. 
+\begin{description}
+
+
+ \item[Step 2: Editing the shell script]\mbox{}\\
+  You need to edit the shell script, \texttt{mkflx.csh}. 
+
+ \item[Step 3: Running the code]\mbox{}\\
+  Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./mkflx.csh
+\end{minted}
+\vspace{-2mm}
+\end{description}
+
+The successful execution of \texttt{mkflx.csh} produces the output file as you have defined as \texttt{flx\_file}, for example, \texttt{TJ-II\_tutorial.flx.h5}. 
+
+
+\subsection{MKLIM code: making limiter file}
+The compilation has been done. 
+\begin{description}
+
+  
+ \item[Step 2: Editing the shell script]\mbox{}\\
+  You need to edit the shell script, \texttt{mklim.csh}. 
+  
+ \item[Step 3: Running the code]\mbox{}\\
+  Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./mklim.csh
+\end{minted}
+\vspace{-2mm}
+\end{description}
+
+The successful execution of \texttt{mklim.csh} produces the output file as you have defined as \texttt{lim\_file}, for example, \texttt{TJ-II\_tutorial.limiter.h5}. 
+  
+
+
+\subsection{Running HINT}
+
+
+\begin{description}
+
+ \item[Step 1: Preparing input files and shell script]\mbox{}\\
+  You need to prepare the working directory. 
+  Here, in this tutorial, the working directory is named as \texttt{run\_TJ-II}. 
+
+  In the working directory, place the output files of \texttt{MKVAC}, \texttt{MKFLX} and \texttt{MKLIM}, i.e. \texttt{TJ-II\_tutorial.vac.h5}, \texttt{TJ-II\_tutorial.flx.h5}, and \texttt{TJ-II\_tutorial.limiter.h5}, respectively.  
+
+  Also, copy an input file, \texttt{TJ-II.input} (here, the name has been changed from \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.input}) and shell script \texttt{go001.csh}, from \texttt{DATA} directory to the working directory. 
+
+ \item[Step 2: Submitting batch job]\mbox{}\\
+
+ The batch file has to request the same number of MPI process which you defined in the input file, \texttt{TJ-II.input}. Then, the mpi execution has to be launched reading the input file;
+ \begin{verbatim}
+ $  mpirun ../build/HINT/hint.exe < TJ-II.input > out_hint
+\end{verbatim}
+  
+  Submit a job as:
+  \begin{verbatim}
+   sbatch job_marconi.sh
+  \end{verbatim}
+%  \begin{verbatim}
+%   pjsub go001.csh
+%  \end{verbatim}
+  If the cluster is not clouded, the calculation will be finished within a few minutes (depending on \texttt{nstep}).
+\end{description}
+
+
+The successful execution of the HINT code produces the following files;
+\texttt{TJ-II\_tutorial.historyb} and \texttt{TJ-II\_tutorial.mag.h5}.
+
+
+\subsection{Calculation of vacuum field}
+The vacuum field (i.e. before execution of HINT) can be computed using \texttt{HMAG}. 
+
+You need the files of the output files of \texttt{MKVAC}, \texttt{MKFLX} and \texttt{MKLIM}, i.e.
+\begin{itemize}
+    \item \texttt{TJ-II\_tutorial.vac.h5}, 
+    \item \texttt{TJ-II\_tutorial.flx.h5},
+    \item \texttt{TJ-II\_tutorial.limiter.h5}
+    \item \texttt{vessel.dat}.
+\end{itemize}
+
+Set the parameters such as \texttt{rax0}, etc. Then, execute by;
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./vac.csh 
+\end{minted}
+\vspace{2mm}
+
+
+\subsection{HMAG calculation of $\beta$-field}
+
+Copy the shell script \texttt{hmag.csh} from \texttt{DATA} directory to working directory. 
+Modify the shell script \texttt{hmag.csh} according to the structure of directory. 
+
+The HMAG code requires the information of the geometry of vacumm vessel, therefore, you need to copy \texttt{LHD\_vessel\_3D.dat} from \texttt{DATA};
+\begin{minted}[linenos]{bash}
+$ cp ../DATA/LHD_vessel_3D.dat .
+\end{minted}
+
+Execute the shell script.
+\vspace{-2mm}
+\begin{minted}[linenos]{bash}
+$ ./hmag.csh
+\end{minted}
+\vspace{5mm}
+
+
+The successful execution of \texttt{hmag.csh} produces the output files, for example, \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.mag.h5}, \texttt{fort.60}, and \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.1.plot}-\texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.8.plot}. 
+
+Files \texttt{r360\_g12538\_bq+100\_lc10\_ppkf2.b020.1.plot} etc. contain the data of the poincare plot. 
+In order to plot, the easiest way is to use \texttt{gnuplot};
+\vspace{0mm}
+\begin{minted}[linenos]{bash}
+$ gnuplot
+gnuplot> plot 'r360_g12538_bq+100_lc10_ppkf2.b020.1.plot'
+\end{minted}
+\vspace{5mm}
+
+The file \texttt{fort.60} contains the information of the plasma minor radius $<r>$, rotational transform $\iota$. 
+
+
+
+\end{document}
